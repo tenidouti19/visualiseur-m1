@@ -9,9 +9,16 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif;display:flex;flex-direction:column}
-#tb{display:flex;gap:5px;padding:4px 6px;overflow-x:auto;flex:none}
+#tb{display:flex;align-items:center;gap:5px;padding:4px 6px;overflow-x:auto;flex:none;min-width:0}
 #tb button,#tb select{min-height:32px;padding:0 9px;font-size:13px;border-radius:7px}
 #tb label{display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
+#graphsBtn{margin-left:auto;flex:none;max-width: min(42vw,190px);overflow:hidden;text-overflow:ellipsis}
+#graphMenu{position:fixed;top:calc(46px + env(safe-area-inset-top,0px));right:8px;z-index:12;display:flex;flex-direction:column;gap:4px;min-width:210px;max-width:min(320px,calc(100vw - 16px));max-height:60vh;overflow:auto;padding:7px;background:var(--bar);border:1px solid var(--grid);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.28)}
+#graphMenu[hidden]{display:none}
+.graphItem{display:flex;align-items:center;gap:5px;min-width:0}
+.graphItem .graphName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.graphItem .graphClose{min-width:32px;min-height:32px;padding:0 8px;border-left:1px solid var(--grid);color:var(--dn)}
+.graphItem.active .graphName{background:var(--acc);color:#fff}
 button,select,input[type=datetime-local]{min-height:42px;padding:0 12px;border-radius:8px;border:1px solid var(--grid);background:var(--bar);color:var(--fg);font:inherit;white-space:nowrap}
 button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 #c{flex:1;min-height:0;position:relative}
@@ -59,15 +66,7 @@ button:disabled{opacity:.45}
 #pop input[type=color]{height:42px;padding:2px;border:1px solid var(--grid);border-radius:8px;background:var(--bar)}
 #ap button{width:100%}
 #aok{background:var(--acc);color:#fff;border-color:var(--acc)}
-#tabs{display:flex;gap:5px;padding:0 6px 4px;overflow-x:auto;flex:none}
-.tab{display:flex;flex:none;border:1px solid var(--grid);border-radius:7px;background:var(--bar);overflow:hidden}
-.tab.on{border-color:var(--acc)}
-.tab button{min-height:32px;border:0;border-radius:0;background:transparent;font-size:13px;padding:0 10px}
-.tab button:first-child{max-width:160px;overflow:hidden;text-overflow:ellipsis}
-.tab.on button:first-child{background:var(--acc);color:#fff}
-.tab .x{padding:0 9px;opacity:.7;border-left:1px solid var(--grid)}
-body.fs #tabs{display:none}
-body.fs.tbo #tabs{display:flex;position:fixed;top:calc(100px + env(safe-area-inset-top,0px));left:0;right:0;z-index:6;background:var(--bg)}
+body.fs #graphsBtn,body.fs #graphMenu{display:none}
 #cf{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
 #cf .box{background:var(--bar);border:1px solid var(--grid);border-radius:12px;padding:16px;width:320px;max-width:calc(100% - 32px);display:flex;flex-direction:column;gap:14px}
 .dg{background:var(--dn);color:#fff;border-color:var(--dn)}
@@ -77,8 +76,9 @@ body.fs.tbo #tabs{display:flex;position:fixed;top:calc(100px + env(safe-area-ins
 <button id="load">Charger un CSV</button><input id="f" type="file" hidden multiple>
 <select id="tf" title="Période"><option value="1">M1</option><option value="5">M5</option><option value="15">M15</option><option value="60">H1</option></select>
 <button id="an">Analyser</button>
+<button id="graphsBtn" type="button" aria-expanded="false">Graphiques ▾</button>
 </div>
-<div id="tabs" hidden></div>
+<div id="graphMenu" hidden></div>
 <div id="c"><canvas id="cv"></canvas>
 <div id="pop" hidden><div class="g3"><label class="fld">Couleur<input type="color" id="pco"></label><label class="fld">Épaisseur<select id="pw"><option value="1">1 px</option><option value="2">2 px</option><option value="3">3 px</option><option value="4">4 px</option><option value="5">5 px</option><option value="6">6 px</option></select></label><div class="fld" id="plf">Remplissage<div class="seg"><button id="pfp">Plein</button><button id="pfv">Vide</button></div></div></div><div class="g4"><button id="pcp">Copier</button><button id="ppa">Coller</button><button id="pde">Supprimer</button><button id="plk">Bloquer</button></div></div>
 <div id="ap" hidden><div class="ttl">Analyse</div><label class="row">Début<input id="d1" type="datetime-local"></label><label class="row">Fin<input id="d2" type="datetime-local"></label><button id="av">Période = vue</button><div class="fld">Afficher<div class="seg"><button id="vm" class="on">Manuel</button><button id="va" class="on">Auto</button></div></div><div class="g2"><button id="au">Annuler l’analyse</button><button id="aok">OK</button></div></div>
@@ -96,7 +96,7 @@ const $=s=>document.querySelector(s),cv=$('#cv'),g=cv.getContext('2d');
 const COL={libre:'#2a8bd6',RB:'#2a8bd6',RH:'#8a5fe0',BOS:'#e8890c',supply:'#d6453d',demand:'#1a9e5c'};
 let M=null,B=null,tf=1,O=[],tool='pan',tp='libre',X0=0,N=150,W=0,H=0,lo=0,hi=1,dr=null,ml=null,mh=null,CC={},sel=null,dh=null,clip=null,multi=0,pacc=0,lastSel=null,charts=[],act=null,busy=0,tmr=0;
 const CM={up:'--up',dn:'--dn',bg:'--bg',grid:'--grid',tx:'--fg'};
-const show={manuel:1,auto:1},P=new Map(),AX=64,BY=22,len=()=>B?B.t.length:0,st=m=>$('#st').textContent=m;
+const show={manuel:1,auto:1},P=new Map(),AX=44,BY=18,len=()=>B?B.t.length:0,st=m=>$('#st').textContent=m;
 const iso=t=>new Date(t*1000).toISOString().slice(0,16).replace('T',' ');
 
 /* Point d’accroche : brancher ici la fonction d’analyse.
@@ -142,9 +142,9 @@ function draw(){sync();saveSoon();
  const cw=W-AX,ch=H-BY,a=Math.max(0,Math.floor(X0)),b=Math.min(len()-1,Math.ceil(X0+N));
  lo=1e18;hi=-1e18;for(let i=a;i<=b;i++){if(B.l[i]<lo)lo=B.l[i];if(B.h[i]>hi)hi=B.h[i]}
  if(lo>hi){lo=0;hi=1}if(hi<=lo)hi=lo+1;const pd=(hi-lo)*.06;lo-=pd;hi+=pd;if(ml!=null){lo=ml;hi=mh}
- g.font='11px system-ui';g.textBaseline='middle';
+ g.font='9px system-ui';g.textBaseline='middle';
  for(let k=0;k<=5;k++){const p=lo+(hi-lo)*k/5,y=yp(p);g.strokeStyle=cc('grid');g.beginPath();g.moveTo(0,y);g.lineTo(cw,y);g.stroke();g.fillStyle=cc('tx');g.fillText(p.toFixed(2),cw+4,y)}
- g.textBaseline='alphabetic';const st4=Math.max(1,Math.round(N/4));
+ g.textBaseline='alphabetic';g.font='9px system-ui';const st4=Math.max(1,Math.round(N/4));
  for(let i=Math.ceil(X0/st4)*st4;i<X0+N;i+=st4){if(i<0||i>=len())continue;g.fillStyle=cc('tx');g.fillText(iso(B.t[i]).slice(5),xp(i)+2,H-6)}
  g.strokeStyle=cc('tx');g.lineWidth=1;g.beginPath();g.moveTo(cw+.5,0);g.lineTo(cw+.5,ch+.5);g.lineTo(0,ch+.5);g.stroke();
  for(let k=0;k<=5;k++){const y=Math.round(yp(lo+(hi-lo)*k/5))+.5;g.beginPath();g.moveTo(cw,y);g.lineTo(cw+4,y);g.stroke()}
@@ -211,7 +211,7 @@ cv.onpointerdown=e=>{
  else if(len()&&!ax){
   const h=sel&&!sel.locked?hitH(sel,e.offsetX,e.offsetY):null;
   if(h)dh={o:sel,k:h.k,ox:e.offsetX-h.x,oy:e.offsetY-h.y};
-  else if(tool=='seg'||tool=='zone')dr={kind:tool,type:tp,src:'manuel',t1:px(e.offsetX),p1:py(e.offsetY),t2:px(e.offsetX),p2:py(e.offsetY)};
+  else if(tool=='seg'||tool=='zone'){const kind=tool;dr={kind,type:tp,src:'manuel',color:drawDefaults[kind]||null,t1:px(e.offsetX),p1:py(e.offsetY),t2:px(e.offsetX),p2:py(e.offsetY)}};
  }
 };
 cv.onpointermove=e=>{
@@ -256,132 +256,4 @@ $('#tf').onchange=e=>{if(M){setTF(+e.target.value);draw()}else tf=+e.target.valu
 const setTool=t=>{tool=t;document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x.dataset.t==t))};
 document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{dr=null;setTool(tool==b.dataset.t?'pan':b.dataset.t)});
 $('#pcp').onclick=()=>{if(sel){clip=JSON.parse(JSON.stringify(sel));delete clip.locked;st('Objet copié.');draw()}};
-$('#ppa').onclick=()=>{if(!clip||!len())return;const o=JSON.parse(JSON.stringify(clip));o.src='manuel';
- const di=X0+N/2-(ix(o.t1)+ix(o.t2))/2,dp=(lo+hi)/2-(o.p1+o.p2)/2;
- o.t1=tm(ix(o.t1)+di);o.t2=tm(ix(o.t2)+di);o.p1+=dp;o.p2+=dp;O.push(o);sel=o;info();draw()};
-$('#pde').onclick=()=>{const k=O.indexOf(sel);if(k>=0)O.splice(k,1);sel=null;info();draw()};
-$('#plk').onclick=()=>{if(sel){sel.locked=!sel.locked;draw()}};
-$('#pco').oninput=e=>{if(sel){sel.color=e.target.value;draw()}};
-$('#pw').onchange=e=>{if(sel){sel.w=+e.target.value;draw()}};
-$('#pfp').onclick=()=>{if(sel&&sel.kind=='zone'){sel.fill=true;draw()}};
-$('#pfv').onclick=()=>{if(sel&&sel.kind=='zone'){sel.fill=false;draw()}};
-const closePops=()=>{$('#mn').hidden=true;$('#ap').hidden=true};
-$('#mb').onclick=()=>{$('#ap').hidden=true;$('#mn').hidden=!$('#mn').hidden};
-$('#mn').onclick=e=>{if(e.target.closest('button'))$('#mn').hidden=true};
-$('#an').onclick=()=>{$('#mn').hidden=true;sel=null;const ap=$('#ap');ap.hidden=!ap.hidden;draw()};
-$('#aok').onclick=()=>{
- $('#ap').hidden=true;
- if(!M)return st('Charge d’abord un CSV.');
- const a=$('#d1').value?Date.parse($('#d1').value+'Z')/1000:-Infinity,b=$('#d2').value?Date.parse($('#d2').value+'Z')/1000:Infinity;
- let i0=0;while(i0<M.t.length&&M.t[i0]<a)i0++;let i1=i0;while(i1<M.t.length&&M.t[i1]<=b)i1++;
- if(i1<=i0)return st('Aucune bougie dans cette période.');
- const m={};for(const k in M)m[k]=M[k].slice(i0,i1);
- const r=ANALYSE(m).map(o=>({...o,src:'auto'}));
- O=O.filter(o=>o.src!='auto').concat(r);draw();
- st(`Analyse du ${iso(m.t[0])} au ${iso(m.t[m.t.length-1])} (${m.t.length} bougies) : ${r.length} objet(s).`);
-};
-$('#au').onclick=()=>{O=O.filter(o=>o.src!='auto');info();draw()};
-$('#av').onclick=()=>{if(!len())return;const f=t=>iso(t).replace(' ','T');$('#d1').value=f(tm(Math.max(0,X0)));$('#d2').value=f(tm(Math.min(len()-1,X0+N)));draw()};
-$('#d1').onchange=$('#d2').onchange=draw;
-$('#vm').onclick=e=>{show.manuel^=1;e.target.classList.toggle('on',!!show.manuel);draw()};
-$('#va').onclick=e=>{show.auto^=1;e.target.classList.toggle('on',!!show.auto);draw()};
-$('#dt').onclick=()=>$('#ov').hidden=false;
-$('#cl').onclick=()=>$('#ov').hidden=true;
-$('#ex').onclick=()=>$('#ta').value=JSON.stringify(O);
-$('#im').onclick=()=>{
- try{const a=JSON.parse($('#ta').value);if(!Array.isArray(a))throw 0;O=O.concat(a.filter(o=>o&&o.t1!=null&&o.p1!=null&&o.t2!=null&&o.p2!=null));info();draw();$('#ov').hidden=true}
- catch(x){st('JSON invalide : rien n’a été importé.')}
-};
-$('#cp').onclick=()=>{const t=$('#ta');t.select();try{navigator.clipboard.writeText(t.value).catch(()=>document.execCommand('copy'))}catch(x){document.execCommand('copy')}};
-/* Couleurs */
-const CI={up:'#cu',dn:'#cd',bg:'#cg',grid:'#cr',tx:'#ct'};
-try{const s=JSON.parse(localStorage.getItem('viz-colors')||'{}');for(const k in CI)if(/^#[0-9a-f]{6}$/i.test(s[k]))CC[k]=s[k]}catch(x){}
-const svC=()=>{try{localStorage.setItem('viz-colors',JSON.stringify(CC))}catch(x){}};
-const hex=s=>{s=(s||'').trim();if(/^#[0-9a-f]{6}$/i.test(s))return s;if(/^#[0-9a-f]{3}$/i.test(s))return'#'+[...s.slice(1)].map(c=>c+c).join('');return'#000000'};
-const fillC=()=>{const css=getComputedStyle(document.documentElement);for(const k in CI)$(CI[k]).value=hex(CC[k]||css.getPropertyValue(CM[k]))};
-$('#cb').onclick=()=>{const p=$('#cs');if(p.hidden)fillC();p.hidden=!p.hidden};
-$('#cok').onclick=()=>{const css=getComputedStyle(document.documentElement);for(const k in CI){const cur=hex(CC[k]||css.getPropertyValue(CM[k])),nv=$(CI[k]).value;if(nv.toLowerCase()!=cur.toLowerCase())CC[k]=nv}svC();$('#cs').hidden=true;draw()};
-$('#crs').onclick=()=>{CC={};svC();fillC();draw()};
-/* Plein écran */
-const fs=on=>{document.body.classList.toggle('fs',on);if(!on)document.body.classList.remove('tbo');$('#cs').hidden=true;
- try{if(on&&!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else if(!on&&document.fullscreenElement)document.exitFullscreen().catch(()=>{})}catch(x){}};
-$('#fsb').onclick=()=>fs(!document.body.classList.contains('fs'));
-$('#fx').onclick=()=>fs(false);
-$('#tbo').onclick=()=>document.body.classList.toggle('tbo');
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&document.body.classList.contains('fs'))fs(false)});
-/* Échelle et mouvement */
-
-
-
-/* Graphiques multiples et sauvegarde (IndexedDB) */
-const idb={db:null,
- open(){return new Promise(res=>{try{const r=indexedDB.open('viz-m1',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{this.db=r.result;res(true)};r.onerror=()=>res(false)}catch(x){res(false)}})},
- get(k){return new Promise(res=>{try{const q=this.db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(undefined)}catch(x){res(undefined)}})},
- set(k,v){return new Promise(res=>{try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=t.onabort=()=>res(false)}catch(x){res(false)}})},
- del(k){return new Promise(res=>{try{const t=this.db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=()=>res(true);t.onerror=t.onabort=()=>res(false)}catch(x){res(false)}})}
-};
-const freshS=()=>({tf,O:[],N:null,X0:0,ml:null,mh:null,d1:'',d2:'',sh:{manuel:1,auto:1}});
-const snap=()=>({tf,O,X0,N,ml,mh,d1:$('#d1').value,d2:$('#d2').value,sh:{manuel:show.manuel,auto:show.auto}});
-function save(){if(!act)return;act.S=snap();idb.set('s:'+act.id,act.S)}
-function saveSoon(){if(!act)return;clearTimeout(tmr);tmr=setTimeout(save,700)}
-function saveMeta(){idb.set('meta',{active:act?act.id:null,charts:charts.map(c=>({id:c.id,name:c.name}))})}
-function apply(rec){
- const S=rec.S;M=rec.M||null;B=null;O=S.O||[];ml=S.ml==null?null:S.ml;mh=S.mh==null?null:S.mh;sel=null;dr=null;dh=null;
- show.manuel=S.sh?S.sh.manuel:1;show.auto=S.sh?S.sh.auto:1;$('#vm').classList.toggle('on',!!show.manuel);$('#va').classList.toggle('on',!!show.auto);
- $('#d1').value=S.d1||'';$('#d2').value=S.d2||'';
- tf=S.tf||1;$('#tf').value=String(tf);N=S.N||150;X0=S.X0||0;
- if(M){setTF(tf);if(S.N==null){N=Math.min(150,len());clamp();X0=len()-N+5;clamp()}}
-}
-function renderTabs(){
- const t=$('#tabs');t.hidden=!charts.length;t.textContent='';
- for(const c of charts){
-  const d=document.createElement('div');d.className='tab'+(c===act?' on':'');
-  const a=document.createElement('button');a.textContent=c.name;a.onclick=()=>switchTo(c.id);
-  const x=document.createElement('button');x.className='x';x.textContent='✕';x.title='Supprimer ce graphique';
-  x.onclick=async()=>{if(await ask(`Supprimer le graphique « ${c.name} » ? Ses tracés seront perdus.`))delChart(c.id)};
-  d.append(a,x);t.append(d);
- }
- const on=t.querySelector('.tab.on');if(on)on.scrollIntoView({inline:'nearest',block:'nearest'});
-}
-const ask=t=>new Promise(res=>{$('#cft').textContent=t;$('#cf').hidden=false;const f=v=>{$('#cf').hidden=true;res(v)};$('#cfy').onclick=()=>f(true);$('#cfn').onclick=()=>f(false)});
-$('#cf').onclick=e=>{if(e.target.id=='cf')$('#cfn').click()};
-async function switchTo(id){
- const rec=charts.find(c=>c.id==id);if(!rec||busy||act===rec)return;busy=1;
- try{
-  if(act){act.S=snap();idb.set('s:'+act.id,act.S);if(act.saved)act.M=null}
-  if(!rec.M&&!rec.missing){st('Chargement…');rec.M=(await idb.get('d:'+id))||null;if(rec.M)rec.saved=1;else rec.missing=1}
-  act=rec;apply(rec);renderTabs();
-  if(rec.missing)st(`Données de « ${rec.name} » introuvables : recharge le CSV.`);else info();
-  draw();saveMeta();
- }finally{busy=0}
-}
-async function addChart(name,m){
- const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
- let nm=name,i=2;while(charts.some(c=>c.name==nm))nm=name+' ('+i+++')';
- const rec={id,name:nm,M:m,S:freshS()};charts.push(rec);
- st(`Enregistrement de ${nm}…`);
- rec.saved=await idb.set('d:'+id,m);
- await switchTo(id);
- if(!rec.saved)st('Graphique créé, mais non enregistré (stockage indisponible ou plein).');
-}
-async function delChart(id){
- const i=charts.findIndex(c=>c.id==id);if(i<0)return;const rec=charts[i];
- charts.splice(i,1);idb.del('d:'+id);idb.del('s:'+id);
- if(act===rec){
-  act=null;const n=charts[Math.min(i,charts.length-1)];
-  if(n)await switchTo(n.id);
-  else{M=null;B=null;O=[];ml=mh=null;sel=null;renderTabs();st('Charge un CSV M1 exporté de MT5.');draw();saveMeta()}
- }else{renderTabs();saveMeta()}
-}
-async function init(){
- try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(x){}
- if(!await idb.open())return;
- const meta=await idb.get('meta');if(!meta||!meta.charts||!meta.charts.length)return;
- for(const c of meta.charts){const S=await idb.get('s:'+c.id);charts.push({id:c.id,name:c.name,M:null,saved:1,S:S||freshS()})}
- await switchTo(charts.some(c=>c.id==meta.active)?meta.active:charts[0].id);
-}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
-addEventListener('pagehide',save);
-addEventListener('resize',draw);new ResizeObserver(draw).observe($('#c'));draw();init();
-})();
-</script></body></html>
+$('#ppa').onclick=()=>{if(!cl
